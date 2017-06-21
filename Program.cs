@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See License.txt in the project root for license information.
 
 using Microsoft.Azure.Management.AppService.Fluent;
@@ -247,7 +247,7 @@ namespace ManageLinuxWebAppWithTrafficManager
                     .WithRegion(region)
                     .WithExistingResourceGroup(rgName)
                     .WithPricingTier(PricingTier.BasicB1)
-                    .WithOperatingSystem(OperatingSystem.Linux)
+                    .WithOperatingSystem(Microsoft.Azure.Management.AppService.Fluent.OperatingSystem.Linux)
                     .Create();
         }
 
@@ -256,7 +256,7 @@ namespace ManageLinuxWebAppWithTrafficManager
             return azure.WebApps.Define(name)
                     .WithExistingLinuxPlan(plan)
                     .WithExistingResourceGroup(rgName)
-                    .WithBuiltInImage(RuntimeStack.NodeJS_4_5_0)
+                    .WithBuiltInImage(RuntimeStack.NodeJS_4_5)
                     .WithManagedHostnameBindings(domain, name)
                     .DefineSslBinding()
                         .ForHostname(name + "." + domain.Name)
