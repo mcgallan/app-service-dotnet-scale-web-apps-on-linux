@@ -1,0 +1,4 @@
+C:\Sources\dotnet-samples\app-service-dotnet-scale-web-apps-on-linux\bin\Debug\net452\ManageLinuxWebAppWithTrafficManager.runtimeconfig.json
+C:\Sources\dotnet-samples\app-service-dotnet-scale-web-apps-on-linux\bin\Debug\net452\ManageLinuxWebAppWithTrafficManager.runtimeconfig.dev.json
+C:\Sources\dotnet-samples\app-service-dotnet-scale-web-apps-on-linux\obj\Debug\net452\ManageLinuxWebAppWithTrafficManager.csproj.ManageLinuxWebAppWithTrafficManager.exe.config
+C:\Sources\dotnet-samples\app-service-dotnet-scale-web-apps-on-linux\obj\Debug\net452\ManageLinuxWebAppWithTrafficManager.csproj.CoreCompileInputs.cache
