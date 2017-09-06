@@ -1,2 +1,0 @@
-C:\Sources\dotnet-samples\app-service-dotnet-scale-web-apps-on-linux\bin\Debug\netstandard1.6\ManageLinuxWebAppWithTrafficManager.deps.json
-C:\Sources\dotnet-samples\app-service-dotnet-scale-web-apps-on-linux\obj\Debug\netstandard1.6\ManageLinuxWebAppWithTrafficManager.csproj.CoreCompileInputs.cache
