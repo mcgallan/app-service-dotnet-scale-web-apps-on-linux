@@ -53,7 +53,7 @@ namespace ManageLinuxWebAppWithTrafficManager
                 Utilities.Log("Purchasing a domain " + domainName + "...");
 
                 azure.ResourceGroups.Define(resourceGroupName)
-                        .WithRegion(Region.USNorthCentral)
+                        .WithRegion(Region.USEast2)
                         .Create();
 
                 var domain = azure.AppServices.AppServiceDomains.Define(domainName)
@@ -79,7 +79,7 @@ namespace ManageLinuxWebAppWithTrafficManager
                 //============================================================
                 // Create a self-singed SSL certificate
 
-                pfxPath = domainName + ".pfx";
+                pfxPath = "webapp_" + nameof(ManageLinuxWebAppWithTrafficManager).ToLower() + ".pfx";
 
                 Utilities.Log("Creating a self-signed certificate " + pfxPath + "...");
 
