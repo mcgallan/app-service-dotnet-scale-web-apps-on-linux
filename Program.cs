@@ -1,18 +1,14 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See License.txt in the project root for license information.
 
-using Microsoft.Azure.Management.AppService.Fluent;
-using Microsoft.Azure.Management.Fluent;
+using Azure.Core;
+using Azure.ResourceManager;
+using Azure.ResourceManager.AppService;
+using Azure.ResourceManager.Resources;
+using Azure.ResourceManager.TrafficManager;
 using Microsoft.Azure.Management.ResourceManager.Fluent;
-using Microsoft.Azure.Management.ResourceManager.Fluent.Authentication;
-using Microsoft.Azure.Management.ResourceManager.Fluent.Core;
 using Microsoft.Azure.Management.Samples.Common;
-using Microsoft.Azure.Management.TrafficManager.Fluent;
 using System;
-using System.Linq;
-using System.Diagnostics;
-using System.IO;
-using System.Net.Http;
 
 namespace ManageLinuxWebAppWithTrafficManager
 {
@@ -31,8 +27,9 @@ namespace ManageLinuxWebAppWithTrafficManager
         private static string CERT_PASSWORD = Utilities.CreatePassword();
         private static string pfxPath;
 
-        public static void RunSample(IAzure azure)
+        public static void RunSample(ArmClient client)
         {
+            AzureLocation region = AzureLocation.EastUS;
             string resourceGroupName = SdkContext.RandomResourceName("rgNEMV_", 24);
             string app1Name = SdkContext.RandomResourceName("webapp1-", 20);
             string app2Name = SdkContext.RandomResourceName("webapp2-", 20);
@@ -44,6 +41,8 @@ namespace ManageLinuxWebAppWithTrafficManager
             string plan3Name = SdkContext.RandomResourceName("jplan3_", 15);
             string domainName = SdkContext.RandomResourceName("jsdkdemo-", 20) + ".com";
             string trafficManagerName = SdkContext.RandomResourceName("jsdktm-", 20);
+            var lro = client.GetDefaultSubscription().GetResourceGroups().CreateOrUpdate(Azure.WaitUntil.Completed, resourceGroupName, new ResourceGroupData(AzureLocation.EastUS));
+            var resourceGroup = lro.Value;
 
             try
             {
@@ -52,28 +51,19 @@ namespace ManageLinuxWebAppWithTrafficManager
 
                 Utilities.Log("Purchasing a domain " + domainName + "...");
 
-                azure.ResourceGroups.Define(resourceGroupName)
-                        .WithRegion(Region.USEast2)
-                        .Create();
-
-                var domain = azure.AppServices.AppServiceDomains.Define(domainName)
-                        .WithExistingResourceGroup(resourceGroupName)
-                        .DefineRegistrantContact()
-                            .WithFirstName("Jon")
-                            .WithLastName("Doe")
-                            .WithEmail("jondoe@contoso.com")
-                            .WithAddressLine1("123 4th Ave")
-                            .WithCity("Redmond")
-                            .WithStateOrProvince("WA")
-                            .WithCountry(CountryISOCode.UnitedStates)
-                            .WithPostalCode("98052")
-                            .WithPhoneCountryCode(CountryPhoneCode.UnitedStates)
-                            .WithPhoneNumber("4258828080")
-                            .Attach()
-                        .WithDomainPrivacyEnabled(true)
-                        .WithAutoRenewEnabled(false)
-                        .Create();
-                Utilities.Log("Purchased domain " + domain.Name);
+                AppServiceDomainCollection domainCollection = resourceGroup.GetAppServiceDomains();
+                var domainData = new AppServiceDomainData(AzureLocation.EastUS)
+                {
+                    ContactRegistrant = new Azure.ResourceManager.AppService.Models.RegistrationContactInfo("jondoe@contoso.com", "Jon", "Doe", "4258828080")
+                    {
+                        AddressMailing = new Azure.ResourceManager.AppService.Models.RegistrationAddressInfo("123 4th Ave", "Redmond", "United States", "98052", "WA")
+                    },
+                    IsDomainPrivacyEnabled = true,
+                    IsAutoRenew = false
+                };
+                var domain_lro = domainCollection.CreateOrUpdate(Azure.WaitUntil.Completed, domainName, domainData);
+                var domain = domain_lro.Value;
+                Utilities.Log("Purchased domain " + domain.Data.Name);
                 Utilities.Print(domain);
 
                 //============================================================
@@ -90,23 +80,23 @@ namespace ManageLinuxWebAppWithTrafficManager
 
                 Utilities.Log("Creating app service plan " + plan1Name + " in US West...");
 
-                var plan1 = CreateAppServicePlan(azure, resourceGroupName, plan1Name, Region.USNorthCentral);
+                var plan1 = CreateAppServicePlan(resourceGroup, plan1Name, AzureLocation.WestUS);
 
-                Utilities.Log("Created app service plan " + plan1.Name);
+                Utilities.Log("Created app service plan " + plan1.Data.Name);
                 Utilities.Print(plan1);
 
                 Utilities.Log("Creating app service plan " + plan2Name + " in Europe West...");
 
-                var plan2 = CreateAppServicePlan(azure, resourceGroupName, plan2Name, Region.EuropeWest);
+                var plan2 = CreateAppServicePlan(resourceGroup, plan2Name, AzureLocation.WestEurope);
 
-                Utilities.Log("Created app service plan " + plan2.Name);
+                Utilities.Log("Created app service plan " + plan2.Data.Name);
                 Utilities.Print(plan1);
 
                 Utilities.Log("Creating app service plan " + plan3Name + " in Asia South East...");
 
-                var plan3 = CreateAppServicePlan(azure, resourceGroupName, plan3Name, Region.AsiaSouthEast);
+                var plan3 = CreateAppServicePlan(resourceGroup, plan3Name, AzureLocation.SoutheastAsia);
 
-                Utilities.Log("Created app service plan " + plan2.Name);
+                Utilities.Log("Created app service plan " + plan2.Data.Name);
                 Utilities.Print(plan1);
 
                 //============================================================
@@ -114,33 +104,33 @@ namespace ManageLinuxWebAppWithTrafficManager
 
                 Utilities.Log("Creating web app " + app1Name + "...");
 
-                var app1 = CreateWebApp(azure, domain, resourceGroupName, app1Name, plan1);
+                var app1 = CreateWebApp(resourceGroup, app1Name, plan1.Data.Id, region);
 
-                Utilities.Log("Created web app " + app1.Name);
+                Utilities.Log("Created web app " + app1.Data.Name);
                 Utilities.Print(app1);
 
                 Utilities.Log("Creating another web app " + app2Name + "...");
-                var app2 = CreateWebApp(azure, domain, resourceGroupName, app2Name, plan2);
+                var app2 = CreateWebApp(resourceGroup, app2Name, plan2.Id, region);
 
-                Utilities.Log("Created web app " + app2.Name);
+                Utilities.Log("Created web app " + app2.Data.Name);
                 Utilities.Print(app2);
 
                 Utilities.Log("Creating another web app " + app3Name + "...");
-                var app3 = CreateWebApp(azure, domain, resourceGroupName, app3Name, plan3);
+                var app3 = CreateWebApp(resourceGroup, app3Name, plan3.Id, region);
 
-                Utilities.Log("Created web app " + app3.Name);
+                Utilities.Log("Created web app " + app3.Data.Name);
                 Utilities.Print(app3);
 
                 Utilities.Log("Creating another web app " + app3Name + "...");
-                var app4 = CreateWebApp(azure, domain, resourceGroupName, app4Name, plan1);
+                var app4 = CreateWebApp(resourceGroup, app4Name, plan1.Id, region);
 
-                Utilities.Log("Created web app " + app4.Name);
+                Utilities.Log("Created web app " + app4.Data.Name);
                 Utilities.Print(app4);
 
                 Utilities.Log("Creating another web app " + app3Name + "...");
-                var app5 = CreateWebApp(azure, domain, resourceGroupName, app5Name, plan1);
+                var app5 = CreateWebApp(resourceGroup, app5Name, plan1.Id, region);
 
-                Utilities.Log("Created web app " + app5.Name);
+                Utilities.Log("Created web app " + app5.Data.Name);
                 Utilities.Print(app5);
 
                 //============================================================
@@ -148,50 +138,60 @@ namespace ManageLinuxWebAppWithTrafficManager
 
                 Utilities.Log("Creating a traffic manager " + trafficManagerName + " for the web apps...");
 
-                var trafficManager = azure.TrafficManagerProfiles
-                        .Define(trafficManagerName)
-                        .WithExistingResourceGroup(resourceGroupName)
-                        .WithLeafDomainLabel(trafficManagerName)
-                        .WithTrafficRoutingMethod(TrafficRoutingMethod.Weighted)
-                        .DefineAzureTargetEndpoint("endpoint1")
-                            .ToResourceId(app1.Id)
-                            .Attach()
-                        .DefineAzureTargetEndpoint("endpoint2")
-                            .ToResourceId(app2.Id)
-                            .Attach()
-                        .DefineAzureTargetEndpoint("endpoint3")
-                            .ToResourceId(app3.Id)
-                            .Attach()
-                        .Create();
+                var trafficManagerProfileCollection = resourceGroup.GetTrafficManagerProfiles();
+                var profileData = new TrafficManagerProfileData()
+                {
+                    TrafficRoutingMethod = Azure.ResourceManager.TrafficManager.Models.TrafficRoutingMethod.Weighted,
+                    Endpoints =
+                    {
+                        new TrafficManagerEndpointData() 
+                        {
+                        TargetResourceId = app1.Id
+                        },
+                        new TrafficManagerEndpointData()
+                        {
+                        TargetResourceId = app2.Id
+                        },
+                        new TrafficManagerEndpointData()
+                        {
+                        TargetResourceId = app3.Id
+                        },
+                    }
+                };
+                var profile_lro = trafficManagerProfileCollection.CreateOrUpdate(Azure.WaitUntil.Completed, trafficManagerName, profileData);
+                var trafficManager = profile_lro.Value;
 
-                Utilities.Log("Created traffic manager " + trafficManager.Name);
+                Utilities.Log("Created traffic manager " + trafficManager.Data.Name);
 
                 //============================================================
                 // Scale up the app service plans
 
                 Utilities.Log("Scaling up app service plan " + plan1Name + "...");
 
-                plan1.Update()
-                                .WithCapacity(plan1.Capacity * 2)
-                                .Apply();
+                plan1.Update(new Azure.ResourceManager.AppService.Models.AppServicePlanPatch()
+                {
+                    TargetWorkerCount = plan1.Data.TargetWorkerCount*2,
+                });
 
                 Utilities.Log("Scaled up app service plan " + plan1Name);
                 Utilities.Print(plan1);
 
                 Utilities.Log("Scaling up app service plan " + plan2Name + "...");
 
-                plan2.Update()
-                                .WithCapacity(plan2.Capacity * 2)
-                                .Apply();
+                plan2.Update(new Azure.ResourceManager.AppService.Models.AppServicePlanPatch()
+                {
+                    TargetWorkerCount = plan2.Data.TargetWorkerCount * 2,
+                });
 
                 Utilities.Log("Scaled up app service plan " + plan2Name);
                 Utilities.Print(plan2);
 
                 Utilities.Log("Scaling up app service plan " + plan3Name + "...");
 
-                plan3.Update()
-                                .WithCapacity(plan3.Capacity * 2)
-                                .Apply();
+                plan3.Update(new Azure.ResourceManager.AppService.Models.AppServicePlanPatch()
+                {
+                    TargetWorkerCount = plan3.Data.TargetWorkerCount * 2,
+                });
 
                 Utilities.Log("Scaled up app service plan " + plan3Name);
                 Utilities.Print(plan3);
@@ -201,7 +201,7 @@ namespace ManageLinuxWebAppWithTrafficManager
                 try
                 {
                     Utilities.Log("Deleting Resource Group: " + resourceGroupName);
-                    azure.ResourceGroups.DeleteByName(resourceGroupName);
+                    resourceGroup.Delete(Azure.WaitUntil.Completed);
                     Utilities.Log("Deleted Resource Group: " + resourceGroupName);
                 }
                 catch (NullReferenceException)
@@ -223,16 +223,12 @@ namespace ManageLinuxWebAppWithTrafficManager
                 // Authenticate
                 var credentials = SdkContext.AzureCredentialsFactory.FromFile(Environment.GetEnvironmentVariable("AZURE_AUTH_LOCATION"));
 
-                var azure = Azure
-                    .Configure()
-                    .WithLogLevel(HttpLoggingDelegatingHandler.Level.Basic)
-                    .Authenticate(credentials)
-                    .WithDefaultSubscription();
+                var client = new ArmClient(null, "db1ab6f0-4769-4b27-930e-01e2ef9c123c");
 
                 // Print selected subscription
-                Utilities.Log("Selected subscription: " + azure.SubscriptionId);
+                Utilities.Log("Selected subscription: " + client.GetSubscriptions().Id);
 
-                RunSample(azure);
+                RunSample(client);
             }
             catch (Exception e)
             {
@@ -240,34 +236,33 @@ namespace ManageLinuxWebAppWithTrafficManager
             }
         }
 
-        private static IAppServicePlan CreateAppServicePlan(IAzure azure, string rgName, string name, Region region)
+        private static WebSiteResource CreateWebApp(ResourceGroupResource resourceGroup, string name,ResourceIdentifier planId , AzureLocation region)
         {
-            return azure.AppServices.AppServicePlans
-                    .Define(name)
-                    .WithRegion(region)
-                    .WithExistingResourceGroup(rgName)
-                    .WithPricingTier(PricingTier.BasicB1)
-                    .WithOperatingSystem(Microsoft.Azure.Management.AppService.Fluent.OperatingSystem.Linux)
-                    .Create();
+
+            var webSiteCollection = resourceGroup.GetWebSites();
+            var webSiteData = new WebSiteData(region)
+            {
+                SiteConfig = new Azure.ResourceManager.AppService.Models.SiteConfigProperties()
+                {
+                    WindowsFxVersion = "PricingTier.StandardS1",
+                    NetFrameworkVersion = "NetFrameworkVersion.V4_6",
+                },
+                AppServicePlanId = planId,
+            };
+            var webSite_lro = webSiteCollection.CreateOrUpdate(Azure.WaitUntil.Completed, name, webSiteData);
+            var webSite = webSite_lro.Value;
+            return webSite;
         }
 
-        private static IWebApp CreateWebApp(IAzure azure, IAppServiceDomain domain, string rgName, string name, IAppServicePlan plan)
+        private static AppServicePlanResource CreateAppServicePlan(ResourceGroupResource resourceGroup, string name, AzureLocation region)
         {
-            return azure.WebApps.Define(name)
-                    .WithExistingLinuxPlan(plan)
-                    .WithExistingResourceGroup(rgName)
-                    .WithBuiltInImage(RuntimeStack.NodeJS_4_5)
-                    .WithManagedHostnameBindings(domain, name)
-                    .DefineSslBinding()
-                        .ForHostname(name + "." + domain.Name)
-                        .WithPfxCertificateToUpload(Path.Combine(Utilities.ProjectPath, "Asset", pfxPath), CERT_PASSWORD)
-                        .WithSniBasedSsl()
-                        .Attach()
-                    .DefineSourceControl()
-                        .WithPublicGitRepository("https://github.Com/jianghaolu/azure-site-test")
-                        .WithBranch("master")
-                        .Attach()
-                    .Create();
+            var appServiceCollection = resourceGroup.GetAppServicePlans();
+            var planData = new AppServicePlanData(region)
+            {
+            };
+            var plan_lro = appServiceCollection.CreateOrUpdate(Azure.WaitUntil.Completed, name, planData);
+            var plan = plan_lro.Value;
+            return plan;
         }
     }
 }
